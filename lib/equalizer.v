@@ -72,7 +72,7 @@ localparam CHANNEL_WIDTH = clog2( NR_CHANNELS );
 
 input  wire clk;
 input  wire rst_n;
-input  wire [EQ_COEFF_WIDTH-1:0] eq_coeff; // S3.EQ_COEFF_WIDTH-4 fractional value
+input  wire [EQ_COEFF_WIDTH-1:0] eq_coeff;
 output wire [EQ_COEFF_ADDR_WIDTH-1:0] eq_coeff_addr;
 input  wire [INPUT_WIDTH-1:0] s_eq_d;
 input  wire [CHANNEL_WIDTH-1:0] s_eq_ch;
@@ -109,16 +109,15 @@ reg [NR_EQ_ELEMENTS_WIDTH-1:0] eq_ram_wr_index = 0;
 reg [NR_EQ_ELEMENTS_WIDTH-1:0] Y0_index = 0;
 reg [NR_EQ_ELEMENTS_WIDTH-1:0] Y0_out_index = 0;
 reg eq_ram_wr = 0;
-// Boolean states
-reg init = 0; // Seven "zero one hot" stages init..accumulate
-reg store = 0;
-reg store_and_shift = 0;
-reg store_sum = 0;
-reg calc_eq_band = 0;
-reg multiply = 0;
-reg accumulate = 0;
 // Boolean conditions
-reg first_iteration = 0;
+reg s0 = 0;
+reg s1 = 0;
+reg s2 = 0;
+reg s3 = 0;
+reg s4 = 0;
+reg s5 = 0;
+reg s6 = 0;
+reg s7 = 0;
 reg a0 = 0;
 reg a1 = 0;
 reg a2 = 0;
@@ -127,7 +126,7 @@ reg b2 = 0;
 reg b2_done = 0;
 reg signed [( 2 * EQ_COEFF_WIDTH )-1:0] sum = 0;
 reg signed [( 2 * EQ_COEFF_WIDTH )-1:0] product = 0;
-(* ram_style = "block" *) // AMD-Xilinx synthesis attribute
+(* ram_style = "block" *)
 reg signed [EQ_SAMPLE_WIDTH-1:0] eq_ram[NR_EQ_ELEMENTS-1:0];
 
 integer i = 0;
@@ -136,8 +135,8 @@ localparam NOISE_BITS = EQ_COEFF_WIDTH - INPUT_WIDTH - EQ_HEADROOM_BITS;
 localparam COEFF_HEADROOM = 3; // coefficient gain range = -8.0 to 8.0 (3-bit headroom)
 localparam EQ_SUM_HEADROOM = COEFF_HEADROOM + 1; // +1 for duplicate sign bit (signed multiplication)
 localparam MAX_EQ_COEFF_WIDTH = 36;
-localparam signed [MAX_EQ_COEFF_WIDTH-1:0] ALL_ZERO = 0; // 00000...
-localparam signed [MAX_EQ_COEFF_WIDTH-1:0] ALL_ONES = -1; // 11111...
+localparam [MAX_EQ_COEFF_WIDTH-1:0] ALL_ZERO = 0; // 00000...
+localparam [MAX_EQ_COEFF_WIDTH-1:0] ALL_ONES = -1; // 11111...
 
 /*============================================================================*/
 initial begin // Parameter checks
@@ -177,12 +176,12 @@ end
 /*============================================================================*/
 always @(posedge clk) begin : biquad // Equalizer biquad algorithm
 /*============================================================================*/
-    // eq_ram_wr ... multiply are pulses - set to 1 for one clock cycle!
+    // eq_ram_wr ... s6 are pulses - set to 1 for one clock cycle!
     eq_ram_wr <= 0;
     out_dv_i <= 0;
     b2_done <= 0;
-    init <= 0;
-    multiply <= 0;
+    s0 <= 0;
+    s6 <= 0;
     if ( s_eq_dv && s_eq_dr_i && ( s_eq_ch < NR_CHANNELS )) begin
         // Fit AUDIO_WIDTH sample into EQ_COEFF_WIDTH equalizer sample
         input_data[EQ_COEFF_WIDTH-1:NOISE_BITS] <= $signed( s_eq_d );
@@ -194,17 +193,16 @@ always @(posedge clk) begin : biquad // Equalizer biquad algorithm
                 eq_ram_rd_index <= NR_EQ_BAND_ELEMENTS * i;
             end
         s_eq_dr_i <= 0;
-        init <= 1;
+        s0 <= 1;
     end
-    if ( init ) begin
+    if ( s0 ) begin
         Y0_index <= eq_ram_rd_index;
         Y0_out_index <= eq_ram_rd_index + ( NB_FFC * NR_EQ_BANDS );
         eq_ram_rd_index <= eq_ram_rd_index + 1;
-        first_iteration <= 1;
+        s1 <= 1;
     end
-    store <= init;
-    if ( store ) begin
-        // Point to X0/Y0
+    s2 <= s0;
+    if ( s2 ) begin
         eq_ram_wr_index <= eq_ram_rd_index;
         eq_ram_wr_data <= eq_ram_rd_data;
         eq_ram_wr <= 1;
@@ -213,19 +211,17 @@ always @(posedge clk) begin : biquad // Equalizer biquad algorithm
             sum <= sum + {{( EQ_COEFF_WIDTH + EQ_SUM_HEADROOM ){1'b0}}, {( EQ_COEFF_WIDTH - EQ_SUM_HEADROOM ){ sum[( EQ_SAMPLE_WIDTH * 2 )-1] }}};
         end
     end
-    store_and_shift <= store;
-    if ( store_and_shift ) begin
-        // X1/Y1 = X0/Y0
+    s3 <= s2;
+    if ( s3 ) begin
         eq_ram_wr_index <= eq_ram_wr_index + 1;
         eq_ram_wr_data <= eq_ram_rd_data;
         eq_ram_wr <= 1;
     end
-    store_sum <= store_and_shift;
-    if ( store_sum ) begin
-        // X2/Y2 = X1/Y2
-        eq_ram_rd_index <= Y0_index; // Point again to X0/Y0
+    s4 <= s3;
+    if ( s4 ) begin
+        eq_ram_rd_index <= Y0_index;
         eq_ram_wr_index <= Y0_index;
-        eq_ram_wr_data[EQ_SAMPLE_WIDTH-1] <= sum[( EQ_SAMPLE_WIDTH * 2 )-1]; // Copy sign bit and normalize
+        eq_ram_wr_data[EQ_SAMPLE_WIDTH-1] <= sum[( EQ_SAMPLE_WIDTH * 2 )-1];
         eq_ram_wr_data[EQ_SAMPLE_WIDTH-2:0] <= sum[(( EQ_SAMPLE_WIDTH * 2 ) - EQ_SUM_HEADROOM - 2 ):( EQ_SAMPLE_WIDTH-EQ_SUM_HEADROOM )];
         // Check for positive and negative overflow
         if ( !sum[( EQ_SAMPLE_WIDTH * 2 )-1] && |sum[(( EQ_SAMPLE_WIDTH * 2 )- 2 ):( EQ_SAMPLE_WIDTH * 2 ) - EQ_SUM_HEADROOM - 1] ) begin
@@ -234,15 +230,15 @@ always @(posedge clk) begin : biquad // Equalizer biquad algorithm
         if ( sum[( EQ_SAMPLE_WIDTH * 2 )-1] && !( &sum[(( EQ_SAMPLE_WIDTH * 2 ) - 2 ):( EQ_SAMPLE_WIDTH * 2 ) - EQ_SUM_HEADROOM - 1] )) begin
             eq_ram_wr_data[EQ_SAMPLE_WIDTH-2:0] <= ALL_ZERO; // Negative maximum
         end
-        if ( first_iteration ) begin // First iteration after s_eq_dv event
-            eq_ram_wr_data <= input_data; // Copy input sample
-            first_iteration <= 0;
+        if ( s1 ) begin
+            eq_ram_wr_data <= input_data;
+            s1 <= 0;
         end
         eq_ram_wr <= 1;
     end
-    calc_eq_band <= store_sum;
-    if ( calc_eq_band ) begin
-        Y0_index <= Y0_index + NB_FFC; // Point to X0/Y0 (next) band
+    s5 <= s4;
+    if ( s5 ) begin
+        Y0_index <= Y0_index + NB_FFC;
         sum <= 0;
         if ( eq_ram_rd_index == Y0_out_index ) begin
             out_d_r <= eq_ram_wr_data;
@@ -251,35 +247,35 @@ always @(posedge clk) begin : biquad // Equalizer biquad algorithm
             s_eq_dr_i <= 1;
         end
         else begin
-            multiply <= 1;
+            s6 <= 1;
             a0 <= 1;
             eq_ram_rd_index <= eq_ram_rd_index + 1;
         end
     end
-    if ( multiply ) begin
+    if ( s6 ) begin
         if ( i_eq_coeff_addr != ( NR_EQ_COEFF - 1 )) begin
             i_eq_coeff_addr <= i_eq_coeff_addr + 1;
         end
-        product <= $signed( eq_coeff ) * eq_ram_wr_data; // Multiply
-        if ( b2 ) begin // All band coefficients processed
-            eq_ram_rd_index <= Y0_index; // Point to X0/Y0 (= Y0 previous sample = Y1!)
+        product <= $signed( eq_coeff ) * eq_ram_wr_data;
+        if ( b2 ) begin
+            eq_ram_rd_index <= Y0_index;
         end
         else begin
             eq_ram_rd_index <= eq_ram_rd_index + 1;
     end
     end
-    accumulate <= multiply;
-    if ( accumulate ) begin
-        sum <= sum + product; // Accumulate
-        eq_ram_wr_data <= eq_ram_rd_data; // Get next X/Y sample
+    s7 <= s6;
+    if ( s7 ) begin
+        sum <= sum + product;
+        eq_ram_wr_data <= eq_ram_rd_data;
         if ( b2 ) begin
             eq_ram_rd_index <= eq_ram_rd_index + 1;
-            store <= 1;
+            s2 <= 1;
         end
         else begin
-            multiply <= 1;
+            s6 <= 1;
         end
-        a0 <= 0; // Reset calc_eq_band assignment!
+        a0 <= 0; // Reset s5 assignment!
         a1 <= a0;
         a2 <= a1;
         b1 <= a2;
@@ -288,13 +284,13 @@ always @(posedge clk) begin : biquad // Equalizer biquad algorithm
     end
     // Reset
     if ( !rst_n ) begin
-        init <= 0;
-        store <= 0;
-        store_and_shift <= 0;
-        store_sum <= 0;
-        calc_eq_band <= 0;
-        multiply <= 0;
-        accumulate <= 0;
+        s0 <= 0;
+        s2 <= 0;
+        s3 <= 0;
+        s4 <= 0;
+        s5 <= 0;
+        s6 <= 0;
+        s7 <= 0;
         s_eq_dr_i <= 1;
         m_eq_d_i <= 0;
         m_eq_ch_i <= 0;
