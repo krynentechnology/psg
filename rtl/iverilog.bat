@@ -16,14 +16,14 @@ if exist .\bin rmdir /Q/S bin
 if not exist .\bin mkdir bin
 cd .\bin
 if "%1"=="" (
-  iverilog -o psg_tb.out -I .. -g2009 -c ..\psg_tb_files.txt ..\psg_tb.sv
+  iverilog.exe -o psg_tb.out -I .. -g2009 -c ..\psg_tb_files.txt ..\psg_tb.sv
 ) else (
   if "%1"=="VCD" (
-    iverilog -DGTK_WAVE -o psg_tb.out -I .. -g2009 -c ..\psg_tb_files.txt ..\psg_tb.sv
+    iverilog.exe -DGTK_WAVE -o psg_tb.out -I .. -g2009 -c ..\psg_tb_files.txt ..\psg_tb.sv
   ) else (
-    iverilog -I .. -g2009 -c ..\psg_tb_files.txt ..\psg_tb.sv
+    iverilog.exe -I .. -g2009 -c ..\psg_tb_files.txt ..\psg_tb.sv
   )
 )
-if exist psg_tb.out vvp psg_tb.out
+if exist psg_tb.out vvp.exe psg_tb.out
 cd ..
 :END
