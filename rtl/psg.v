@@ -287,7 +287,8 @@ wire s_eq_dr;
 
 randomizer #(
     .NR_CHANNELS( NR_CHANNELS ),
-    .OUTPUT_WIDTH( OUTPUT_WIDTH ))
+    .OUTPUT_WIDTH( OUTPUT_WIDTH ),
+    .SIGNED( 1 ))
 rndm(
     .clk(clk),
     .rndm_ch(rndm_ch),
