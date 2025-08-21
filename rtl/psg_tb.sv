@@ -334,6 +334,7 @@ begin
 end
 endtask // setup_quadratic
 
+integer file = 0;
 /*============================================================================*/
 task fw_16( input integer a );
 /*============================================================================*/
@@ -356,7 +357,6 @@ begin // Write little endian!
 end
 endtask // swap
 
-integer file = 0;
 integer error = 0;
 // Little endian WAV tags
 localparam [31:0] RIFF_TAG = "RIFF";

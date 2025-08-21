@@ -1,6 +1,6 @@
 echo off
 :: make file for Icarus Verilog simulator
-if not "%1"=="" (
+if not [%1]==[] (
   if not defined IVERILOG (
     set IVERILOG=%1
     set PATH=%PATH%;%1\bin
@@ -15,7 +15,7 @@ if not defined IVERILOG (
 if exist .\bin rmdir /Q/S bin
 if not exist .\bin mkdir bin
 cd .\bin
-if "%1"=="" (
+if [%1]==[] (
   iverilog.exe -o equalizer_tb.out -I .. ..\equalizer.v ..\equalizer_tb.sv
   iverilog.exe -o interpolator_tb.out -I .. ..\interpolator.v ..\interpolator_tb.sv
   iverilog.exe -o randomizer_tb.out -I .. ..\randomizer.v ..\randomizer_tb.sv

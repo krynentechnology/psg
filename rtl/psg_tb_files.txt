@@ -1,5 +1,5 @@
-..\..\lib\equalizer.v
-..\..\lib\interpolator.v
-..\..\lib\randomizer.v
-..\..\lib\sine_wg_cor.v
-..\psg.v
+../psg.v
+../../lib/equalizer.v
+../../lib/interpolator.v
+../../lib/randomizer.v
+../../lib/sine_wg_cor.v

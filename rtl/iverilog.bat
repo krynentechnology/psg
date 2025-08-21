@@ -1,6 +1,6 @@
 echo off
 :: make file for Icarus Verilog simulator
-if not "%1"=="" (
+if not [%1]==[] (
   if not defined IVERILOG (
     set IVERILOG=%1
     set PATH=%PATH%;%1\bin
@@ -15,7 +15,8 @@ if not defined IVERILOG (
 if exist .\bin rmdir /Q/S bin
 if not exist .\bin mkdir bin
 cd .\bin
-if "%1"=="" (
+echo %time%
+if [%1]==[] (
   iverilog.exe -o psg_tb.out -I .. -g2009 -c ..\psg_tb_files.txt ..\psg_tb.sv
 ) else (
   if "%1"=="VCD" (
@@ -25,5 +26,6 @@ if "%1"=="" (
   )
 )
 if exist psg_tb.out vvp.exe psg_tb.out
+echo %time%
 cd ..
 :END
