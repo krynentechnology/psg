@@ -1,0 +1,8 @@
+--cc --exe
+-Wno-fatal -Wno-lint -Wno-style -Wno-SELRANGE
+-I%VERILATOR_INCLUDE%
+psg.v
+../lib/equalizer.v
+../lib/interpolator.v
+../lib/randomizer.v
+../lib/sine_wg_cor.v

@@ -1,4 +1,4 @@
-echo off
+@echo off
 :: make file for Icarus Verilog simulator
 if not [%1]==[] (
   if not defined IVERILOG (
