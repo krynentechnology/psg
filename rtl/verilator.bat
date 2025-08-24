@@ -13,8 +13,8 @@ if not defined VERILATOR_ROOT (
   echo Run batch file with path to YosysHQ or OSS CAD Suite installed directory
   echo as first argument. If this dirctory holds the folder 'oss-cad-suite',
   echo rename this 'oss-cad-suite' folder to 'yosyshq'. The PATH environment
-  echo variable should include a GNU GCC distrubution, 'make.exe' for windows,
-  echo Python3 and perl.
+  echo variable should include a GNU GCC distribution, 'make.exe' for windows
+  echo and Python3.
   goto :END
 )
 echo PSG simulation started %time%
