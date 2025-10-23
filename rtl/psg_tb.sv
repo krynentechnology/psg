@@ -729,8 +729,10 @@ begin
 end
 endtask
 
+localparam real FADE_OUT_MS = 10.0;
 integer sweep_samples = 0;
 integer silence_samples = 0;
+integer fade_out_samples = 0;
 
 /*============================================================================*/
 task whoop( input real hz1, // Hertz
@@ -746,42 +748,42 @@ begin
     // A single channel is required, m_signal2_d is collected!
     s_phase_swg2_ch = 0;
     s_vol_swg2_ch = 0;
-    s_phase_swg1_dv = 0;
-    s_vol_swg1_dv = 0;
     m_signal2_dr = 0;
     vol_swg1_stop_attn = 0;
     sweep_samples = sweep * SAMPLE_FREQUENCY;
     silence_samples = silence * SAMPLE_FREQUENCY;
     total_samples = iteration * ( sweep_samples + silence_samples );
     open_wav_file( file_name, total_samples );
-
-    setup_quadratic( 2, FULL_SCALE, s_vol_swg2_ch, 0, STORE ); // P1
-    setup_quadratic( 2, FULL_SCALE, s_vol_swg2_ch, 0, STORE ); // P0
-    setup_quadratic( 2, FULL_SCALE, s_vol_swg2_ch, 0, STORE ); // N1
-    setup_quadratic( 2, FULL_SCALE, 0, FACTOR_1, EXPONENTIAL ); // N2
+    // Exponential fade out (ramp down) function for channel s_vol_swg2_ch!
+    fade_out_samples = (( FADE_OUT_MS * SAMPLE_FREQUENCY ) / 1000.0 );
+    rd_fraction = FS_FRACTION ** ( 1.0 / ( DECAY_ADJUSTMENT * fade_out_samples ));
 
     m_signal2_dr = 1;
     for ( i = 0; i < iteration; i = i + 1 ) begin
-        setup_linear( 2, freq2rad( hz1 ), 0, 0, STORE ); // P0
-        setup_linear( 2, freq2rad( hz2 ), 0, ( FACTOR_1 / sweep_samples ), 0 );
+        setup_quadratic( 2, -FULL_SCALE, s_vol_swg2_ch, 0, STORE ); // P1
+        setup_quadratic( 2, 0, s_vol_swg2_ch, 0, STORE ); // P0
+        setup_quadratic( 2, FULL_SCALE, s_vol_swg2_ch, 0, STORE ); // N1
+        setup_quadratic( 2, 0, s_vol_swg2_ch, FACTOR_1, EXPONENTIAL ); // N2
+        setup_linear( 2, freq2rad( hz1 ), s_phase_swg2_ch, 0, STORE ); // P0
+        setup_linear( 2, freq2rad( hz2 ), s_phase_swg2_ch, ( FACTOR_1 / sweep_samples ), 0 ); // N1
         wait( s_sine2_dr );
         s_sine2_zero = 1;
         wait( !s_sine2_dr );
         s_sine2_zero = 0;
-        setup_linear( 2, 0, 0, 0, STORE ); // P0 = 0, sine output = 0
-        setup_linear( 2, 0, 0, ( FACTOR_1 / silence_samples ), 0 );
-        wait( s_sine2_dr );
-        s_sine2_zero = 1;
-        wait( !s_sine2_dr );
-        s_sine2_zero = 0;
+        wait( s_phase_swg2_dr ); // Wait for sweep is finished, setup fade out and silence!
+        setup_quadratic( 2, -FULL_SCALE, s_vol_swg2_ch, 0, STORE ); // P1
+        setup_quadratic( 2, 0, s_vol_swg2_ch, 0, STORE ); // P0
+        setup_quadratic( 2, FULL_SCALE, s_vol_swg2_ch, 0, STORE ); // N1
+        setup_quadratic( 2, 0, s_phase_swg2_ch, ( FACTOR_1 * rd_fraction ), EXPONENTIAL ); // N2
+        setup_linear( 2, freq2rad( hz2 ), s_phase_swg2_ch, ( FACTOR_1 / silence_samples ), 0 );
+        wait( s_phase_swg2_dr ); // Wait for silence is finished!
+        wait ( s_vol_swg2_nchr );
+        vol_swg2_stop_attn = 1; // Stop attenuation
+        setup_quadratic( 2, 0, s_vol_swg2_ch, 0, RESET );
+        vol_swg2_stop_attn = 0;
     end
 
-    wait( s_phase_swg2_dr ); // Wait for last silence is finished!
-    wait ( s_vol_swg2_nchr );
-    vol_swg2_stop_attn = 1; // Stop attenuation
-    setup_quadratic( 2, 0, 0, 0, RESET );
-    vol_swg2_stop_attn = 0;
-    setup_linear( 2, 0, 0, 0, RESET );
+    setup_linear( 2, 0, s_phase_swg2_ch, 0, RESET );
 
     close_wav_file( total_samples );
 end
@@ -804,8 +806,6 @@ begin
     // A single channel is required, m_signal2_d is collected!
     s_phase_swg2_ch = 0;
     s_vol_swg2_ch = 0;
-    s_phase_swg1_dv = 0;
-    s_vol_swg1_dv = 0;
     m_signal2_dr = 0;
     vol_swg2_stop_attn = 0;
     sweep1_samples = sweep1 * SAMPLE_FREQUENCY;
@@ -821,12 +821,12 @@ begin
     m_signal2_dr = 1;
     for ( i = 0; i < iteration; i = i + 1 ) begin
         setup_linear( 2, freq2rad( hz1 ), 0, 0, STORE ); // P0
-        setup_linear( 2, freq2rad( hz2 ), 0, ( FACTOR_1 / sweep1_samples ), 0 );
+        setup_linear( 2, freq2rad( hz2 ), 0, ( FACTOR_1 / sweep1_samples ), 0 ); // N1
         wait( s_sine2_dr );
         s_sine2_zero = 1;
         wait( !s_sine2_dr );
         s_sine2_zero = 0;
-        setup_linear( 2, freq2rad( hz1 ), 0, ( FACTOR_1 / sweep2_samples ), 0 );
+        setup_linear( 2, freq2rad( hz1 ), 0, ( FACTOR_1 / sweep2_samples ), 0 ); // N1
         wait( s_sine2_dr );
         s_sine2_zero = 1;
         wait( !s_sine2_dr );
@@ -848,8 +848,6 @@ endtask
 initial begin
 /*============================================================================*/
     rst_n = 0;
-    s_phase_swg1_dv = 0;
-    s_vol_swg1_dv = 0;
     m_signal1_dr = 0;
     m_signal2_dr = 0;
     #100 // 0.1us
